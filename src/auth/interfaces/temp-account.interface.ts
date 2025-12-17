@@ -5,4 +5,4 @@ export interface TempAccount {
   role: 'user' | 'contractor';
   otp: string;
   is_verified: boolean;
-}
+} 
