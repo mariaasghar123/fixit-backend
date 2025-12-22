@@ -1,0 +1,23 @@
+import { Module } from '@nestjs/common';
+import { PaymentsService } from './payments.service';
+import { JwtModule } from '@nestjs/jwt';
+import { PaymentsController } from './payments.controller';
+import { WebhooksController } from './webhooks.controller';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Subscription } from '../subscriptions/entities/subscription.entity';
+import { SubscriptionPlan } from '../subscriptions/entities/subscription-plan.entity';
+
+import { User } from '../users/user.entity';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([Subscription, SubscriptionPlan, User]),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'defaultSecret', // .env me define karein
+      signOptions: { expiresIn: '1h' },
+    }),
+  ],
+  controllers: [PaymentsController, WebhooksController],
+  providers: [PaymentsService],
+})
+export class PaymentsModule {}

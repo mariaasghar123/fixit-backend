@@ -12,11 +12,12 @@ export class MailController {
     schema: {
       properties: {
         email: { type: 'string', example: 'maria@gmail.com' },
+        otp: { type: 'string', example: '12345' }, // OTP input for testing
       },
     },
   })
-  async sendTest(@Body('email') email: string) {
-    await this.mailService.sendTestEmail(email);
+  async sendTest(@Body('email') email: string, @Body('otp') otp: string) {
+    await this.mailService.sendOtpEmail(email, otp);
     return { message: 'Email sent successfully' };
   }
 }

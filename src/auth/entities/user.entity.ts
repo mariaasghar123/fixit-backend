@@ -3,7 +3,7 @@ import { Subscription } from 'src/subscriptions/entities/subscription.entity';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('uuid')
   id: number;
 
   @Column()

@@ -7,6 +7,7 @@ import { PasswordReset } from './entities/password-reset.entity';
 import { Location } from './entities/location.entity';
 import { TempAccount } from './entities/temp-account.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MailModule } from 'src/mail/mail.module';
 
 
 @Module({
@@ -15,7 +16,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     JwtModule.register({
       secret: 'YOUR_SECRET_KEY', // 🔹 change to env variable later
       signOptions: { expiresIn: '1h' },
+
     }),
+    MailModule
   ],
   controllers: [AuthController],
   providers: [AuthService],

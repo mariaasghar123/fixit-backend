@@ -17,12 +17,13 @@ export class MailService {
     });
   }
 
-  async sendTestEmail(to: string) {
-    return this.transporter.sendMail({
+  // OTP ko argument me receive karenge
+  async sendOtpEmail(email: string, otp: string) {
+    await this.transporter.sendMail({
       from: process.env.SMTP_FROM,
-      to,
-      subject: 'SMTP Test Email',
-      text: 'Agar ye email aa rahi hai, SMTP bilkul sahi kaam kar raha hai 🎉',
+      to: email,
+      subject: 'Verify your account',
+      html: `<h3>Your OTP is: ${otp}</h3>`,
     });
   }
 }

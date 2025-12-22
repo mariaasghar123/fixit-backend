@@ -52,16 +52,13 @@ export class AuthController {
   @ApiBody({ type: SignupEmailDto })
   @ApiResponse({
   status: 201,
-  description: 'Account created successfully',
+  description: 'OTP send to email',
   schema: {
     example: {
-      message: 'Account created successfully',
+      message: 'OTP send to email',
       user: {
-        id: 1,
-        full_name: 'John Doe',
         email: 'john@example.com',
-        role: 'user',
-        is_verified: true,
+        is_verified: false,
       },
     },
   },
@@ -82,7 +79,7 @@ export class AuthController {
   description: 'OTP sent successfully',
   schema: {
     example: {
-      message: 'OTP sent to registered email',
+      message: 'OTP sent to registered phone no',
       temp_token: 'temp_xyz_123',
       next_step: 'verify_otp',
     },

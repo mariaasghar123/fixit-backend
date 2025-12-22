@@ -2,14 +2,20 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeor
 
 @Entity('temp_accounts')
 export class TempAccount {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('uuid')
   id: number;
 
   @Column()
   full_name: string;
 
-  @Column({ unique: true })
+  // @Column({ unique: true })
+  // phone_number: string;
+  @Column({ nullable: true })
+  email: string;
+
+  @Column({ nullable: true })
   phone_number: string;
+
 
   @Column()
   otp: string;

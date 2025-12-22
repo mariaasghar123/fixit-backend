@@ -23,6 +23,7 @@ import { LoginPhoneDto } from './dto/login-phone.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EnableLocationDto } from './dto/enable-location.dto';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -32,6 +33,7 @@ export class AuthService {
     @InjectRepository(TempAccount) private tempAccountRepo: Repository<TempAccount>,
     @InjectRepository(PasswordReset) private passwordResetRepo: Repository<PasswordReset>,
     @InjectRepository(Location) private locationRepo: Repository<Location>,
+      private mailService: MailService,
   ) {}
 
   // ================= ADMIN LOGIN =================
@@ -48,28 +50,64 @@ export class AuthService {
   }
 
   // ================= SIGNUP WITH EMAIL =================
-  async signupWithEmail(dto: SignupEmailDto) {
-    if (dto.password !== dto.confirm_password) {
-      throw new BadRequestException('Passwords do not match');
-    }
+//   async signupWithEmail(dto: SignupEmailDto) {
+//     if (dto.password !== dto.confirm_password) {
+//       throw new BadRequestException('Passwords do not match');
+//     }
 
-    const existingUser = await this.userRepo.findOne({ where: { email: dto.email } });
-    if (existingUser) throw new BadRequestException('Email already exists');
+//     const existingUser = await this.userRepo.findOne({ where: { email: dto.email } });
+//     if (existingUser) throw new BadRequestException('Email already exists');
 
-    const hashed = await bcrypt.hash(dto.password, 10);
+//     const hashed = await bcrypt.hash(dto.password, 10);
 
-    const user = this.userRepo.create({
-      full_name: dto.full_name,
-      email: dto.email,
-      password: hashed,
-      role: dto.role,
-      is_verified: true,
-    });
+//     const user = this.userRepo.create({
+//       full_name: dto.full_name,
+//       email: dto.email,
+//       password: hashed,
+//       role: dto.role,
+//       is_verified: true,
+//     });
+// //  const data= ""
+//     await this.userRepo.save(user);
+//      // 🔴 IMPORTANT: password remove
+//   const { password, ...safeUser } = user;
 
-    await this.userRepo.save(user);
+//     return { message: 'Account created successfully', user:safeUser };
+//   }
 
-    return { message: 'Account created successfully', user };
+async signupWithEmail(dto: SignupEmailDto) {
+  const existingUser = await this.userRepo.findOne({
+    where: { email: dto.email },
+  });
+
+  if (existingUser) {
+    throw new BadRequestException('Email already exists');
   }
+
+  const otp = Math.floor(10000 + Math.random() * 90000).toString();
+  const temp_token = 'temp_' + Date.now();
+
+  const tempAccount = this.tempAccountRepo.create({
+    full_name: dto.full_name,
+    email: dto.email,
+    role: dto.role,
+    otp,
+    temp_token,
+    is_verified: false,
+  });
+
+  await this.tempAccountRepo.save(tempAccount);
+
+  // 📧 EMAIL VERIFICATION
+  await this.mailService.sendOtpEmail(dto.email, otp);
+
+  return {
+    message: 'Verification email sent',
+    temp_token,
+    next_step: 'verify_email_otp',
+  };
+}
+
 
   // ================= SIGNUP WITH PHONE (STEP 1) =================
   async signupWithPhone(dto: SignupPhoneDto) {
@@ -116,32 +154,78 @@ export class AuthService {
 
   // ================= CREATE PASSWORD (STEP 3) =================
 
+  // async createPassword(dto: CreatePasswordDto) {
+  //   if (dto.password !== dto.confirm_password) {
+  //     throw new BadRequestException('Passwords do not match');
+  //   }
+
+  //   const tempAccount = await this.tempAccountRepo.findOne({ where: { temp_token: dto.temp_token, is_verified: true } });
+  //   if (!tempAccount) throw new BadRequestException('Invalid or expired token');
+
+  //   const hashed = await bcrypt.hash(dto.password, 10);
+
+  //   const user = this.userRepo.create({
+  //     full_name: tempAccount.full_name,
+  //     phone_number: tempAccount.phone_number,
+  //     password: hashed,
+  //     role: tempAccount.role,
+  //     is_verified: true,
+  //   });
+
+  //   await this.userRepo.save(user);
+
+  //   await this.tempAccountRepo.remove(tempAccount); // remove temp after creating real user
+
+  //   const token = this.jwtService.sign({ id: user.id, role: user.role });
+
+  //   return { message: 'Account created successfully', access_token: token, user };
+  // }
+
+
   async createPassword(dto: CreatePasswordDto) {
-    if (dto.password !== dto.confirm_password) {
-      throw new BadRequestException('Passwords do not match');
-    }
-
-    const tempAccount = await this.tempAccountRepo.findOne({ where: { temp_token: dto.temp_token, is_verified: true } });
-    if (!tempAccount) throw new BadRequestException('Invalid or expired token');
-
-    const hashed = await bcrypt.hash(dto.password, 10);
-
-    const user = this.userRepo.create({
-      full_name: tempAccount.full_name,
-      phone_number: tempAccount.phone_number,
-      password: hashed,
-      role: tempAccount.role,
-      is_verified: true,
-    });
-
-    await this.userRepo.save(user);
-
-    await this.tempAccountRepo.remove(tempAccount); // remove temp after creating real user
-
-    const token = this.jwtService.sign({ id: user.id, role: user.role });
-
-    return { message: 'Account created successfully', access_token: token, user };
+  if (dto.password !== dto.confirm_password) {
+    throw new BadRequestException('Passwords do not match');
   }
+
+  // Find temp account by temp_token and verified
+  const tempAccount = await this.tempAccountRepo.findOne({
+    where: { temp_token: dto.temp_token, is_verified: true },
+  });
+
+  if (!tempAccount) {
+    throw new BadRequestException('Invalid or expired token');
+  }
+
+  const hashed = await bcrypt.hash(dto.password, 10);
+
+  // Create user for both email or phone signup
+  const user = this.userRepo.create({
+    full_name: tempAccount.full_name,
+    email: tempAccount.email ?? null,           // Email 
+    phone_number: tempAccount.phone_number ?? null, // Phone 
+    password: hashed,
+    role: tempAccount.role,
+    is_verified: true,
+  });
+
+  await this.userRepo.save(user);
+
+  // Remove temp account after creating real user
+  await this.tempAccountRepo.remove(tempAccount);
+
+  // JWT token generate
+  const token = this.jwtService.sign({ id: user.id, role: user.role });
+
+  // Return user without password
+  const { password, ...safeUser } = user;
+
+  return {
+    message: 'Account created successfully',
+    access_token: token,
+    user: safeUser,
+  };
+}
+
 
   // ================= LOGIN =================
   async loginWithEmail(dto: LoginEmailDto) {
