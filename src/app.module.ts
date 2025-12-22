@@ -5,9 +5,12 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { SubscriptionPlansModule } from './admin/subscription-plans/subscription-plans.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
-  imports: [
+  imports: [ MailModule,
     // 🔹 ENV variables load
     ConfigModule.forRoot({
       isGlobal: true,
@@ -26,6 +29,8 @@ import { AppService } from './app.service';
     }),
 
     AuthModule,
+    SubscriptionsModule,
+    SubscriptionPlansModule,
   ],
   controllers: [AppController],
   providers: [AppService],

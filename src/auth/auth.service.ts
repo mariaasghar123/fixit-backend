@@ -115,7 +115,7 @@ export class AuthService {
   }
 
   // ================= CREATE PASSWORD (STEP 3) =================
-  
+
   async createPassword(dto: CreatePasswordDto) {
     if (dto.password !== dto.confirm_password) {
       throw new BadRequestException('Passwords do not match');

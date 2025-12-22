@@ -44,7 +44,6 @@ export class AuthController {
   adminLogin(@Body() dto: AdminLoginDto) {
     return this.authService.adminLogin(dto);
   }
-
   // ==================================================
   // SIGNUP WITH EMAIL (USER / CONTRACTOR)
   // ==================================================
@@ -303,5 +302,4 @@ enableLocation(@Body() dto: EnableLocationDto, @Req() req) {
 updateLocation(@Body() dto: EnableLocationDto, @Req() req) {
   return this.authService.enableLocation(req.user, dto);
 }
-
 }

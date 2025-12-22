@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn , OneToMany} from 'typeorm';
+import { Subscription } from 'src/subscriptions/entities/subscription.entity';
 
 @Entity('users')
 export class User {
@@ -25,4 +26,8 @@ export class User {
 
   @CreateDateColumn()
   created_at: Date;
+
+  // 🔹 inverse side for Subscription#contractor
+  @OneToMany(() => Subscription, (subscription) => subscription.contractor)
+  subscriptions: Subscription[];
 }
