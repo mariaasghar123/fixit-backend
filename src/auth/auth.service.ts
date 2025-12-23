@@ -332,4 +332,78 @@ if (record.role !== 'admin') {
       enabled: dto.enabled,
     };
   }
+
+    // ================= signup/login with google =================
+
+  async googleLogin(googleUser: any) {
+  let user = await this.userRepo.findOne({
+    where: {
+      provider: 'google',
+      provider_id: googleUser.provider_id,
+    },
+  });
+
+  // First time login → CREATE USER
+  if (!user) {
+    user = this.userRepo.create({
+      full_name: googleUser.full_name,
+      email: googleUser.email,
+      provider: 'google',
+      provider_id: googleUser.provider_id,
+      is_verified: true,
+    });
+
+    await this.userRepo.save(user);
+  }
+
+  const token = this.jwtService.sign({
+    id: user.id,
+    role: user.role,
+  });
+
+  const { password, ...safeUser } = user;
+
+  return {
+    message: 'Login successful',
+    access_token: token,
+    user: safeUser,
+  };
+}
+
+// auth.service.ts
+async oauthLogin(oauthUser: any) {
+  let user = await this.userRepo.findOne({
+    where: {
+      provider: oauthUser.provider,
+      provider_id: oauthUser.provider_id,
+    },
+  });
+
+  // First time login → CREATE USER
+  if (!user) {
+    user = this.userRepo.create({
+      full_name: oauthUser.full_name,
+      email: oauthUser.email,
+      provider: oauthUser.provider,
+      provider_id: oauthUser.provider_id,
+      is_verified: true,
+    });
+
+    await this.userRepo.save(user);
+  }
+
+  const token = this.jwtService.sign({
+    id: user.id,
+    role: user.role,
+  });
+
+  const { password, ...safeUser } = user;
+
+  return {
+    message: 'Login successful',
+    access_token: token,
+    user: safeUser,
+  };
+}
+
 }

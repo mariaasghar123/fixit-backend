@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Put, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Put, Req, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -12,6 +12,7 @@ import { LoginPhoneDto } from './dto/login-phone.dto';
 import { EnableLocationDto } from './dto/enable-location.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ResendOtpDto } from './dto/resend-otp.dto';
+import { AuthGuard } from '@nestjs/passport';
 import {
   ApiTags,
   ApiOperation,
@@ -142,9 +143,7 @@ resendOtp(@Body() dto: ResendOtpDto) {
       message: 'Account created successfully',
       access_token: 'jwt_token_here',
       user: {
-        id: 2,
         full_name: 'Jane Doe',
-        phone_number: '+1234567890',
         role: 'contractor',
         is_verified: true,
       },
@@ -298,5 +297,47 @@ enableLocation(@Body() dto: EnableLocationDto, @Req() req) {
 })
 updateLocation(@Body() dto: EnableLocationDto, @Req() req) {
   return this.authService.enableLocation(req.user, dto);
+}
+
+// signup/ login with google 
+@Get('google')
+@UseGuards(AuthGuard('google'))
+@ApiOperation({ summary: 'Login / Signup with Google',
+  description: `This route redirects user to Google login page.
+**Note:** Google OAuth routes cannot be tested via Swagger UI due to redirect and CORS restrictions. Please test via browser.` 
+ })
+googleAuth() {
+  // Google redirect 
+}
+
+@Get('google/callback')
+@UseGuards(AuthGuard('google'))
+@ApiOperation({ summary: 'Google OAuth callback',
+  description: `This route handles callback from Google after login.
+**Note:** Cannot be tested via Swagger UI. Test via browser or Postman following redirects.`
+ })
+googleCallback(@Req() req) {
+  return this.authService.googleLogin(req.user);
+}
+
+// ================= signup/login with Facebook =================
+@Get('facebook')
+@UseGuards(AuthGuard('facebook'))
+@ApiOperation({ 
+  summary: 'Login / Signup with Facebook',
+  description: `This route redirects user to Facebook login page.
+**Note:** Facebook OAuth routes cannot be tested via Swagger UI due to redirect and CORS restrictions. Please test via browser.` 
+})
+facebookAuth() {}
+
+@Get('facebook/callback')
+@UseGuards(AuthGuard('facebook'))
+@ApiOperation({ 
+  summary: 'Facebook OAuth callback',
+  description: `This route handles callback from Facebook after login.
+**Note:** Cannot be tested via Swagger UI. Test via browser or Postman following redirects.` 
+})
+facebookCallback(@Req() req) {
+  return this.authService.oauthLogin(req.user);
 }
 }

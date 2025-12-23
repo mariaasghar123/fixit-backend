@@ -4,7 +4,19 @@ import { Subscription } from 'src/subscriptions/entities/subscription.entity';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  id: number;
+  id: string;
+  // user.entity.ts
+
+ @Column({
+    type: 'enum',
+    enum: ['local', 'google', 'facebook', 'apple'],
+    default: 'local',
+  })
+  provider: 'local' | 'google' | 'facebook' | 'apple';
+
+@Column({ nullable: true })
+provider_id: string;
+
 
   @Column()
   full_name: string;
@@ -15,7 +27,7 @@ export class User {
   @Column({ unique: true, nullable: true })
   phone_number: string;
 
-  @Column()
+  @Column({nullable:true})
   password: string;
 
   @Column({ type: 'enum', enum: ['user', 'contractor'] })
