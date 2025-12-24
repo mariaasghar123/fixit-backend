@@ -340,4 +340,26 @@ facebookAuth() {}
 facebookCallback(@Req() req) {
   return this.authService.oauthLogin(req.user);
 }
+
+// // ================= signup/login with Apple =================
+// @Get('apple')
+// @UseGuards(AuthGuard('apple'))
+// @ApiOperation({ 
+//   summary: 'Login / Signup with Apple',
+//   description: `This route redirects user to Apple login page.
+// **Note:** Apple OAuth routes cannot be tested via Swagger UI. Please test via browser.` 
+// })
+// appleAuth() {}
+
+// @Get('apple/callback')
+// @UseGuards(AuthGuard('apple'))
+// @ApiOperation({ 
+//   summary: 'Apple OAuth callback',
+//   description: `This route handles callback from Apple after login.
+// **Note:** Cannot be tested via Swagger UI. Test via browser or Postman following redirects.` 
+// })
+// appleCallback(@Req() req) {
+//   return this.authService.oauthLogin(req.user);
+// }
+
 }

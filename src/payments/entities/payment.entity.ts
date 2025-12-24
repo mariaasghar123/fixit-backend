@@ -14,7 +14,7 @@ export class Payment {
   @Column()
   payment_provider: string; // stripe, paypal, etc.
 
-  @Column()
+  @Column({unique:true})
   payment_intent_id: string;
 
   @Column('decimal', { precision: 10, scale: 2 })

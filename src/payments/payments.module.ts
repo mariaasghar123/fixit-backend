@@ -8,16 +8,17 @@ import { Subscription } from '../subscriptions/entities/subscription.entity';
 import { SubscriptionPlan } from '../subscriptions/entities/subscription-plan.entity';
 
 import { User } from '../users/user.entity';
+import { Payment } from './entities/payment.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Subscription, SubscriptionPlan, User]),
+    TypeOrmModule.forFeature([Subscription, SubscriptionPlan, User, Payment]),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'defaultSecret', // .env me define karein
+      secret: process.env.JWT_SECRET || 'defaultSecret',
       signOptions: { expiresIn: '1h' },
     }),
   ],
   controllers: [PaymentsController, WebhooksController],
   providers: [PaymentsService],
 })
-export class PaymentsModule {}
+  export class PaymentsModule {}

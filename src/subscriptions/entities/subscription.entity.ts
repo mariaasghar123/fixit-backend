@@ -16,6 +16,9 @@ export class Subscription {
   @JoinColumn({ name: 'plan_id' })
   plan: SubscriptionPlan;
 
+  @Column('decimal', { precision: 10, scale: 2 })
+  price: number;
+  
   @Column({
     type: 'enum',
     enum: SubscriptionStatus,

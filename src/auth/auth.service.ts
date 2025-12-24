@@ -369,7 +369,6 @@ if (record.role !== 'admin') {
     user: safeUser,
   };
 }
-
 // auth.service.ts
 async oauthLogin(oauthUser: any) {
   let user = await this.userRepo.findOne({
@@ -384,7 +383,7 @@ async oauthLogin(oauthUser: any) {
     user = this.userRepo.create({
       full_name: oauthUser.full_name,
       email: oauthUser.email,
-      provider: oauthUser.provider,
+      provider: oauthUser.provider,     // google/facebook/apple
       provider_id: oauthUser.provider_id,
       is_verified: true,
     });
