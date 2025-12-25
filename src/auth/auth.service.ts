@@ -25,8 +25,14 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EnableLocationDto } from './dto/enable-location.dto';
 import { MailService } from 'src/mail/mail.service';
 
+function generateOtp(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit OTP
+}
+
+
 @Injectable()
 export class AuthService {
+  
   constructor(
     private jwtService: JwtService,
     @InjectRepository(User) private userRepo: Repository<User>,
@@ -76,70 +82,169 @@ export class AuthService {
 //   }
 
 async signupWithEmail(dto: SignupEmailDto) {
-  const existingUser = await this.userRepo.findOne({
-    where: { email: dto.email },
-  });
+  const user = await this.userRepo.findOne({
+  where: { email: dto.email },
+});
 
-  if (existingUser) {
-    throw new BadRequestException('Email already exists');
-  }
+if (user && user.status === 'active') {
+  throw new BadRequestException('User already exists');
+}
 
-  const otp = Math.floor(10000 + Math.random() * 90000).toString();
-  const temp_token = 'temp_' + Date.now();
+const otp = generateOtp();
+  const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 min
 
-  const tempAccount = this.tempAccountRepo.create({
+if (user && user.status === 'pending') {
+  user.otp_code = otp;
+  user.otp_expires_at = expiry;
+  await this.userRepo.save(user);
+} else {
+  const newUser = this.userRepo.create({
     full_name: dto.full_name,
     email: dto.email,
     role: dto.role,
-    otp,
-    temp_token,
-    is_verified: false,
+    status: 'pending',
+    otp_code: otp,
+    otp_expires_at: expiry,
   });
-
-  await this.tempAccountRepo.save(tempAccount);
-
-  // 📧 EMAIL VERIFICATION
+  await this.userRepo.save(newUser);
+}
+// 📧 Send OTP
   await this.mailService.sendOtpEmail(dto.email, otp);
 
   return {
+    statusCode: 200,
     message: 'Verification email sent',
-    temp_token,
     next_step: 'verify_email_otp',
   };
+
+  // const existingUser = await this.userRepo.findOne({
+  //   where: { email: dto.email },
+  // });
+
+  // if (existingUser) {
+  //   throw new BadRequestException('Email already exists');
+  // }
+
+  // const otp = Math.floor(10000 + Math.random() * 90000).toString();
+  // const temp_token = 'temp_' + Date.now();
+
+  // const tempAccount = this.tempAccountRepo.create({
+  //   full_name: dto.full_name,
+  //   email: dto.email,
+  //   role: dto.role,
+  //   otp,
+  //   temp_token,
+  //   is_verified: false,
+  // });
+
+  // await this.tempAccountRepo.save(tempAccount);
+
+  // 📧 EMAIL VERIFICATION
+  // await this.mailService.sendOtpEmail(dto.email, otp);
+
+  // return {
+  //   message: 'Verification email sent',
+  //   temp_token,
+  //   next_step: 'verify_email_otp',
+  // };
 }
 
 
   // ================= SIGNUP WITH PHONE (STEP 1) =================
-  async signupWithPhone(dto: SignupPhoneDto) {
-    const temp_token = 'temp_' + Date.now();
-    const otp = Math.floor(10000 + Math.random() * 90000).toString(); // 5-digit OTP
+ async signupWithPhone(dto: SignupPhoneDto) {
+  const user = await this.userRepo.findOne({
+    where: { phone_number: dto.phone_number },
+  });
 
-    const tempAccount = this.tempAccountRepo.create({
+  // 🔴 Case 1: Already active
+  if (user && user.status === 'active') {
+    throw new BadRequestException('User already exists');
+  }
+
+  const otp = generateOtp();
+  const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+  // 🟡 Case 2: Pending user → regenerate OTP
+  if (user && user.status === 'pending') {
+    user.otp_code = otp;
+    user.otp_expires_at = expiry;
+    await this.userRepo.save(user);
+  } 
+  // 🟢 Case 3: New user
+  else {
+    const newUser = this.userRepo.create({
       full_name: dto.full_name,
       phone_number: dto.phone_number,
       role: dto.role,
-      otp,
-      temp_token,
-      is_verified: false,
+      status: 'pending',
+      otp_code: otp,
+      otp_expires_at: expiry,
     });
 
-    await this.tempAccountRepo.save(tempAccount);
-
-    return { message: 'OTP sent successfully', temp_token, next_step: 'verify_otp' };
+    await this.userRepo.save(newUser);
   }
+
+  // 📲 SEND OTP (SMS service)
+  // await this.smsService.sendOtp(dto.phone_number, otp);
+
+  return {
+    statusCode: 200,
+    message: 'OTP sent successfully',
+    next_step: 'verify_phone_otp',
+  };
+}
+
 
   // ================= VERIFY OTP (STEP 2) =================
-  async verifyOtp(dto: VerifyOtpDto) {
-    const account = await this.tempAccountRepo.findOne({ where: { temp_token: dto.temp_token, role: dto.role } });
-    if (!account || account.otp !== dto.otp) {
-      throw new BadRequestException('Invalid OTP');
-    }
+  // async verifyOtp(dto: VerifyOtpDto) {
+  //   const account = await this.tempAccountRepo.findOne({ where: { temp_token: dto.temp_token, role: dto.role } });
+  //   if (!account || account.otp !== dto.otp) {
+  //     throw new BadRequestException('Invalid OTP');
+  //   }
 
-    account.is_verified = true;
-    await this.tempAccountRepo.save(account);
+  //   account.is_verified = true;
+  //   await this.tempAccountRepo.save(account);
 
-    return { message: 'OTP verified successfully', next_step: 'create_password' };
+  //   return { message: 'OTP verified successfully', next_step: 'create_password' };
+  // }
+async verifyOtp(dto: VerifyOtpDto) {
+  const user = await this.userRepo.findOne({
+    where: [
+      { email: dto.identifier },
+      { phone_number: dto.identifier },
+    ],
+  });
+
+  if (!user) {
+    throw new BadRequestException('Invalid request');
   }
+
+  if (user.status === 'active') {
+    throw new BadRequestException('User already verified');
+  }
+
+  if (!user.otp_code || user.otp_code !== dto.otp) {
+    throw new BadRequestException('Invalid OTP');
+  }
+
+  if (!user.otp_expires_at || user.otp_expires_at < new Date()) {
+    throw new BadRequestException('OTP expired');
+  }
+
+  // ✅ VERIFY USER
+  user.status = 'active';
+  user.otp_code = null;
+  user.otp_expires_at = null;
+
+  await this.userRepo.save(user);
+
+  return {
+    message: 'OTP verified successfully',
+    next_step: 'create_password',
+  };
+}
+
+
 
   async resendOtp(dto: ResendOtpDto) {
     const account = await this.tempAccountRepo.findOne({ where: { temp_token: dto.temp_token, role: dto.role } });
@@ -182,41 +287,76 @@ async signupWithEmail(dto: SignupEmailDto) {
   // }
 
 
-  async createPassword(dto: CreatePasswordDto) {
+//   async createPassword(dto: CreatePasswordDto) {
+//   if (dto.password !== dto.confirm_password) {
+//     throw new BadRequestException('Passwords do not match');
+//   }
+
+//   // Find temp account by temp_token and verified
+//   const tempAccount = await this.tempAccountRepo.findOne({
+//     where: { temp_token: dto.temp_token, is_verified: true },
+//   });
+
+//   if (!tempAccount) {
+//     throw new BadRequestException('Invalid or expired token');
+//   }
+
+//   const hashed = await bcrypt.hash(dto.password, 10);
+
+//   // Create user for both email or phone signup
+//   const user = this.userRepo.create({
+//     full_name: tempAccount.full_name,
+//     email: tempAccount.email ?? null,           // Email 
+//     phone_number: tempAccount.phone_number ?? null, // Phone 
+//     password: hashed,
+//     role: tempAccount.role,
+//     is_verified: true,
+//   });
+
+//   await this.userRepo.save(user);
+
+//   // Remove temp account after creating real user
+//   await this.tempAccountRepo.remove(tempAccount);
+
+//   // JWT token generate
+//   const token = this.jwtService.sign({ id: user.id, role: user.role });
+
+//   // Return user without password
+//   const { password, ...safeUser } = user;
+
+//   return {
+//     message: 'Account created successfully',
+//     access_token: token,
+//     user: safeUser,
+//   };
+// }
+
+async createPassword(dto: CreatePasswordDto) {
   if (dto.password !== dto.confirm_password) {
     throw new BadRequestException('Passwords do not match');
   }
 
-  // Find temp account by temp_token and verified
-  const tempAccount = await this.tempAccountRepo.findOne({
-    where: { temp_token: dto.temp_token, is_verified: true },
+  const user = await this.userRepo.findOne({
+    where: [
+      { email: dto.identifier },
+      { phone_number: dto.identifier },
+    ],
   });
 
-  if (!tempAccount) {
-    throw new BadRequestException('Invalid or expired token');
+  if (!user || user.status !== 'active') {
+    throw new BadRequestException('User not verified');
   }
 
   const hashed = await bcrypt.hash(dto.password, 10);
-
-  // Create user for both email or phone signup
-  const user = this.userRepo.create({
-    full_name: tempAccount.full_name,
-    email: tempAccount.email ?? null,           // Email 
-    phone_number: tempAccount.phone_number ?? null, // Phone 
-    password: hashed,
-    role: tempAccount.role,
-    is_verified: true,
-  });
+  user.password = hashed;
 
   await this.userRepo.save(user);
 
-  // Remove temp account after creating real user
-  await this.tempAccountRepo.remove(tempAccount);
+  const token = this.jwtService.sign({
+    id: user.id,
+    role: user.role,
+  });
 
-  // JWT token generate
-  const token = this.jwtService.sign({ id: user.id, role: user.role });
-
-  // Return user without password
   const { password, ...safeUser } = user;
 
   return {
@@ -225,6 +365,7 @@ async signupWithEmail(dto: SignupEmailDto) {
     user: safeUser,
   };
 }
+
 
 
   // ================= LOGIN =================

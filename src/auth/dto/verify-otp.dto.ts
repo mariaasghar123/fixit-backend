@@ -2,10 +2,13 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsIn, Length, Matches } from 'class-validator';
 
 export class VerifyOtpDto {
-  @ApiProperty({ example: 'temp_xyz_123' })
+  @ApiProperty({
+    example: 'user@email.com OR 03001234567',
+    description: 'Email or phone number used during signup',
+  })
   @IsString()
   @IsNotEmpty()
-  temp_token: string;
+  identifier: string;
 
   @ApiProperty({ example: '12345' })
   @IsString()

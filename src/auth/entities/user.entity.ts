@@ -6,6 +6,19 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
   // user.entity.ts
+  @Column({
+  type: 'enum',
+  enum: ['pending', 'active'],
+  default: 'pending',
+})
+status: 'pending' | 'active';
+
+@Column({ type: 'varchar',nullable: true })
+otp_code: string | null;
+
+@Column({ type: 'timestamp', nullable: true })
+otp_expires_at: Date | null;
+
 
  @Column({
     type: 'enum',
@@ -21,10 +34,10 @@ provider_id: string;
   @Column()
   full_name: string;
 
-  @Column({ unique: true, nullable: true })
+  @Column({ nullable: true })
   email: string;
 
-  @Column({ unique: true, nullable: true })
+  @Column({ nullable: true })
   phone_number: string;
 
   @Column({nullable:true})
