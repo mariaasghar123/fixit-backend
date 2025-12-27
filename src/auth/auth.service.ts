@@ -491,7 +491,7 @@ if (record.role !== 'admin') {
       email: googleUser.email,
       provider: 'google',
       provider_id: googleUser.provider_id,
-      is_verified: true,
+      status: 'active',
     });
 
     await this.userRepo.save(user);
@@ -526,7 +526,7 @@ async oauthLogin(oauthUser: any) {
       email: oauthUser.email,
       provider: oauthUser.provider,     // google/facebook/apple
       provider_id: oauthUser.provider_id,
-      is_verified: true,
+      status: 'active',
     });
 
     await this.userRepo.save(user);

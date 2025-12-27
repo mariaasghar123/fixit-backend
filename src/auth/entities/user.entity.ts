@@ -46,9 +46,6 @@ provider_id: string;
   @Column({ type: 'enum', enum: ['user', 'contractor'] })
   role: 'user' | 'contractor';
 
-  @Column({ default: false })
-  is_verified: boolean;
-
   @CreateDateColumn()
   created_at: Date;
 

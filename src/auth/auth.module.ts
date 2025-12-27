@@ -10,17 +10,26 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MailModule } from 'src/mail/mail.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
-import { AppleStrategy } from './strategies/apple.strategy';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, TempAccount, PasswordReset, Location]), // add all entities
-    JwtModule.register({
-      secret: process.env.JWT_SECRET, // 🔹 change to env
-      signOptions: { expiresIn: '1h' },
-
+    ConfigModule.forRoot({
+      isGlobal: true,
     }),
-    MailModule
+
+    TypeOrmModule.forFeature([User, TempAccount, PasswordReset, Location]),
+
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '1h' },
+      }),
+    }),
+
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, GoogleStrategy, FacebookStrategy],
