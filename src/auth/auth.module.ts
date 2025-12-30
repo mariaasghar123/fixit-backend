@@ -11,6 +11,7 @@ import { MailModule } from 'src/mail/mail.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     MailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, FacebookStrategy],
+  providers: [AuthService, GoogleStrategy, FacebookStrategy, JwtAuthGuard],
+    exports: [JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}

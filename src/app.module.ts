@@ -9,6 +9,8 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { SubscriptionPlansModule } from './admin/subscription-plans/subscription-plans.module';
 import { MailModule } from './mail/mail.module';
 import { PaymentsModule } from './payments/payments.module';
+import { CategoriesModule } from './categories/categories.module';
+import { ProfileModule } from './profile/profile.module';
 @Module({
   imports: [
     // ✅ 1. ConfigModule sab se pehle
@@ -34,9 +36,10 @@ import { PaymentsModule } from './payments/payments.module';
     SubscriptionsModule,
     SubscriptionPlansModule,
     PaymentsModule,
+    CategoriesModule,
+    ProfileModule
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-

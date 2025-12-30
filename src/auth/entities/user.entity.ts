@@ -1,5 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn , OneToMany} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn , OneToMany, OneToOne} from 'typeorm';
 import { Subscription } from 'src/subscriptions/entities/subscription.entity';
+import { Profile } from 'src/profile/entities/profile.entity';
 
 @Entity('users')
 export class User {
@@ -52,4 +53,7 @@ provider_id: string;
   // 🔹 inverse side for Subscription#contractor
   @OneToMany(() => Subscription, (subscription) => subscription.contractor)
   subscriptions: Subscription[];
+
+   @OneToOne(() => Profile, profile => profile.user)
+  profile: Profile;
 }
