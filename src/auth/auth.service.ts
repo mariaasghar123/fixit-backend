@@ -11,6 +11,7 @@ import { User } from './entities/user.entity';
 import { TempAccount } from './entities/temp-account.entity';
 import { PasswordReset } from './entities/password-reset.entity';
 import { Location } from './entities/location.entity';
+import * as nodemailer from 'nodemailer';
 
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { SignupEmailDto } from './dto/signup-email.dto';
@@ -24,7 +25,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EnableLocationDto } from './dto/enable-location.dto';
 import { MailService } from 'src/mail/mail.service';
-
+import { MoreThan } from 'typeorm';
+import * as crypto from 'crypto';
 function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit OTP
 }
@@ -96,6 +98,8 @@ const otp = generateOtp();
 if (user && user.status === 'pending') {
   user.otp_code = otp;
   user.otp_expires_at = expiry;
+  user.otp_last_sent_at = new Date();
+
   await this.userRepo.save(user);
 } else {
   const newUser = this.userRepo.create({
@@ -232,7 +236,10 @@ async verifyOtp(dto: VerifyOtpDto) {
   }
 
   // ✅ VERIFY USER
-  user.status = 'active';
+  user.password_token = crypto.randomBytes(32).toString('hex'); // secure random token
+  user.password_token_expires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+  // user.status = 'active';
+    // user.status = 'otp_verified';
   user.otp_code = null;
   user.otp_expires_at = null;
 
@@ -241,21 +248,60 @@ async verifyOtp(dto: VerifyOtpDto) {
   return {
     message: 'OTP verified successfully',
     next_step: 'create_password',
+    password_token: user.password_token, // return token to frontend
   };
 }
 
 
 
   async resendOtp(dto: ResendOtpDto) {
-    const account = await this.tempAccountRepo.findOne({ where: { temp_token: dto.temp_token, role: dto.role } });
-    if (!account) throw new BadRequestException('Invalid or expired token');
+  const user = await this.userRepo.findOne({
+    where: [
+      { email: dto.identifier },
+      { phone_number: dto.identifier },
+    ],
+  });
 
-    const otp = Math.floor(10000 + Math.random() * 90000).toString();
-    account.otp = otp;
-    await this.tempAccountRepo.save(account);
-
-    return { message: 'OTP resent successfully' };
+  //  Security-safe response
+  if (!user) {
+    return { message: 'If the account exists, OTP has been sent' };
   }
+
+  if (user.status === 'active') {
+    throw new BadRequestException('User already verified');
+  }
+
+  // ⏱️ 60 sec cooldown
+  if (user.otp_last_sent_at) {
+    const secondsPassed =
+      (Date.now() - user.otp_last_sent_at.getTime()) / 1000;
+
+    if (secondsPassed < 60) {
+      throw new BadRequestException(
+        `Please wait ${Math.ceil(60 - secondsPassed)} seconds before resending OTP`,
+      );
+    }
+  }
+
+  // 🔢 Generate new OTP
+  const otp = generateOtp();
+
+  user.otp_code = otp;
+  user.otp_expires_at = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+  user.otp_last_sent_at = new Date(); // ⏱️ reset timer
+
+  await this.userRepo.save(user);
+
+ // ✅ Send OTP email
+  if (user.email) {
+    await this.mailService.sendOtpEmail(user.email, otp);
+  }
+
+
+  return { message: 'OTP resent successfully' };
+}
+
+
 
   // ================= CREATE PASSWORD (STEP 3) =================
 
@@ -336,19 +382,23 @@ async createPassword(dto: CreatePasswordDto) {
     throw new BadRequestException('Passwords do not match');
   }
 
-  const user = await this.userRepo.findOne({
-    where: [
-      { email: dto.identifier },
-      { phone_number: dto.identifier },
-    ],
-  });
+ const user = await this.userRepo.findOne({
+  where: {
+    password_token: dto.password_token,
+    password_token_expires: MoreThan(new Date()), 
+  },
+});
 
-  if (!user || user.status !== 'active') {
-    throw new BadRequestException('User not verified');
+
+  if (!user ) {
+    throw new BadRequestException('Invalid or expired token');
   }
-
   const hashed = await bcrypt.hash(dto.password, 10);
   user.password = hashed;
+  // ✅ Invalidate token immediately
+  user.password_token = null;
+  user.password_token_expires = null;
+  user.status = 'active'; // fully verified now
 
   await this.userRepo.save(user);
 
@@ -392,56 +442,178 @@ async createPassword(dto: CreatePasswordDto) {
   }
 
   // ================= FORGOT / RESET PASSWORD =================
-  async forgotPassword(dto: ForgotPasswordDto) {
-    const otp = Math.floor(10000 + Math.random() * 90000).toString();
-    const reset_token = 'reset_' + Date.now();
+  // async forgotPassword(dto: ForgotPasswordDto) {
+  //   const otp = Math.floor(10000 + Math.random() * 90000).toString();
+  //   const reset_token = 'reset_' + Date.now();
 
-    const record = this.passwordResetRepo.create({
-      identifier: dto.identifier,
-      otp,
-      reset_token,
-      role: dto.role,
-      is_used: false,
+  //   const record = this.passwordResetRepo.create({
+  //     identifier: dto.identifier,
+  //     otp,
+  //     reset_token,
+  //     role: dto.role,
+  //     is_used: false,
+  //   });
+
+  //   await this.passwordResetRepo.save(record);
+
+  //   return { message: 'Password reset OTP sent', reset_token };
+  // }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+  // 1️⃣ Generate OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // 2️⃣ Generate reset token
+  const reset_token = crypto.randomBytes(32).toString('hex');
+
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+
+  // 3️⃣ Invalidate old tokens
+  await this.passwordResetRepo.update(
+    { identifier: dto.identifier, is_used: false },
+    { is_used: true }
+  );
+
+  // 4️⃣ Save new password reset record (OTP hashed)
+  const record = this.passwordResetRepo.create({
+    identifier: dto.identifier,
+    otp: await bcrypt.hash(otp, 10),
+    reset_token,
+    role: dto.role,
+    is_used: false,
+    otp_expires_at: expiresAt,
+  });
+
+  await this.passwordResetRepo.save(record);
+
+  // 5️⃣ Send OTP via Email (or SMS if phone)
+  const user = await this.userRepo.findOne({ 
+    where: [
+      { email: dto.identifier },
+      { phone_number: dto.identifier }
+    ] 
+  });
+
+  if (!user) throw new BadRequestException('User not found');
+
+  if (user.email) {
+    // 🔹 Email transporter setup
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
     });
 
-    await this.passwordResetRepo.save(record);
+    // 🔹 Email content
+    const mailOptions = {
+      from: process.env.SMTP_USER,
+      to: user.email,
+      subject: 'Password Reset OTP',
+      text: `Your OTP for password reset is: ${otp}. It will expire in 5 minutes.`,
+    };
 
-    return { message: 'Password reset OTP sent', reset_token };
+    await transporter.sendMail(mailOptions);
   }
 
-  async resetPassword(dto: ResetPasswordDto) {
-    if (dto.new_password !== dto.confirm_password) throw new BadRequestException('Passwords do not match');
+  if (user.phone_number) {
+    // 🔹 Future: SMS logic here if user signed up with phone
+    console.log(`Send OTP ${otp} to phone: ${user.phone_number}`);
+  }
 
-    const record = await this.passwordResetRepo.findOne({ where: { reset_token: dto.reset_token, otp: dto.otp, is_used: false } });
-    if (!record) throw new BadRequestException('Invalid reset token or OTP');
-
-    const hashed = await bcrypt.hash(dto.new_password, 10);
-
-    // Update user password
-
-    let user: User | null = null;
-if (record.role !== 'admin') {
-  user = await this.userRepo.findOne({
-    where: [
-      { email: record.identifier, role: record.role },
-      { phone_number: record.identifier, role: record.role },
-    ],
-  });
+  return {
+    message: 'Password reset OTP sent',
+    reset_token,
+    next_step: 'reset_password',
+  };
 }
-    if (!user && record.role !== 'admin') throw new BadRequestException('User not found');
 
-    if (user) {
-      user.password = hashed;
-      await this.userRepo.save(user);
-    }
+//   async resetPassword(dto: ResetPasswordDto) {
+//     if (dto.new_password !== dto.confirm_password) throw new BadRequestException('Passwords do not match');
 
-    record.is_used = true;
-    await this.passwordResetRepo.save(record);
+//     const record = await this.passwordResetRepo.findOne({ where: { reset_token: dto.reset_token, otp: dto.otp, is_used: false } });
+//     if (!record) throw new BadRequestException('Invalid reset token or OTP');
 
-    return { message: 'Password reset successfully' };
-  }
+//     const hashed = await bcrypt.hash(dto.new_password, 10);
+
+//     // Update user password
+
+//     let user: User | null = null;
+// if (record.role !== 'admin') {
+//   user = await this.userRepo.findOne({
+//     where: [
+//       { email: record.identifier, role: record.role },
+//       { phone_number: record.identifier, role: record.role },
+//     ],
+//   });
+// }
+//     if (!user && record.role !== 'admin') throw new BadRequestException('User not found');
+
+//     if (user) {
+//       user.password = hashed;
+//       await this.userRepo.save(user);
+//     }
+
+//     record.is_used = true;
+//     await this.passwordResetRepo.save(record);
+
+//     return { message: 'Password reset successfully' };
+//   }
 
   // ================= LOGOUT =================
+  
+async resetPassword(dto: ResetPasswordDto) {
+  if (dto.new_password !== dto.confirm_password) {
+    throw new BadRequestException('Passwords do not match');
+  }
+
+  // 🔍 Step 1: record find karo (OTP ke baghair)
+  const record = await this.passwordResetRepo.findOne({
+    where: {
+      reset_token: dto.reset_token,
+      is_used: false,
+      otp_expires_at: MoreThan(new Date()),
+    },
+  });
+
+  if (!record) {
+    throw new BadRequestException('Invalid or expired reset token');
+  }
+
+  // 🔐 Step 2: OTP bcrypt compare
+  const isOtpValid = await bcrypt.compare(dto.otp, record.otp);
+  if (!isOtpValid) {
+    throw new BadRequestException('Invalid OTP');
+  }
+
+  // 👤 Step 3: user find karo
+  const user = await this.userRepo.findOne({
+    where: [
+      { email: record.identifier },
+      { phone_number: record.identifier },
+    ],
+  });
+
+  if (!user) {
+    throw new BadRequestException('User not found');
+  }
+
+  //  Step 4: password update
+  user.password = await bcrypt.hash(dto.new_password, 10);
+  await this.userRepo.save(user);
+
+  // 🔒 Step 5: token invalidate
+  record.is_used = true;
+  record.used_at = new Date();
+  await this.passwordResetRepo.save(record);
+
+  return { message: 'Password reset successfully' };
+}
+
+
   async logout() {
     // For stateless JWT, we just return success
     return { message: 'Logged out successfully' };

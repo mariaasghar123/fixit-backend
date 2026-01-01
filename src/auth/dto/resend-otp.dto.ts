@@ -2,11 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsIn } from 'class-validator';
 
 export class ResendOtpDto {
-  @ApiProperty()
+  @ApiProperty({ example: 'test@gmail.com OR 03001234567' })
   @IsNotEmpty()
-  temp_token: string;
+  identifier: string;
 
-  @ApiProperty({ enum: ['user', 'contractor'] })
-  @IsIn(['user', 'contractor'])
-  role: 'user' | 'contractor';
 }

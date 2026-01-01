@@ -44,6 +44,12 @@ provider_id: string;
   @Column({nullable:true})
   password: string;
 
+  @Column({ type: 'varchar' ,nullable: true })
+  password_token: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  password_token_expires: Date | null;
+
   @Column({ type: 'enum', enum: ['user', 'contractor'] })
   role: 'user' | 'contractor';
 
@@ -56,4 +62,7 @@ provider_id: string;
 
    @OneToOne(() => Profile, profile => profile.user)
   profile: Profile;
+
+  @Column({ type: 'timestamp', nullable: true })
+  otp_last_sent_at: Date | null;
 }

@@ -18,6 +18,8 @@ import { ProfileRadiusDto } from './dto/profile-radius.dto';
 import { ProfileRateDto } from './dto/profile-rate.dto';
 import { ProfileDescriptionDto } from './dto/profile-description.dto';
 import { ProfileAvailabilityDto } from './dto/profile-availability.dto';
+import { ImageType } from 'src/common/enums/image-type.enum';
+import { StorageService } from 'src/common/services/storage.service';
 
 @Injectable()
 export class ProfileService {
@@ -26,6 +28,7 @@ export class ProfileService {
     private readonly profileRepo: Repository<Profile>,
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
+      private readonly storageService: StorageService,
   ) {}
 
   // -------------------------
@@ -107,7 +110,10 @@ export class ProfileService {
     const profile = await this.getProfile(userId);
     this.ensureContractor(profile.user);
 
-    profile.license_photo = await this.uploadToS3(file);
+    profile.license_photo = await this.storageService.upload(
+      file,
+    ImageType.LICENSE,
+    );
     return this.profileRepo.save(profile);
   }
 
@@ -116,7 +122,10 @@ export class ProfileService {
   // -------------------------
   async uploadProfilePhoto(file: any, userId: string) {
     const profile = await this.getProfile(userId);
-    profile.profile_photo = await this.uploadToS3(file);
+    profile.profile_photo = await this.storageService.upload(
+      file,
+    ImageType.PROFILE,
+    );
     return this.profileRepo.save(profile);
   }
 
@@ -127,9 +136,10 @@ export class ProfileService {
     const profile = await this.getProfile(userId);
     this.ensureContractor(profile.user);
 
-    const urls: string[] = [];
-    for (const file of files) urls.push(await this.uploadToS3(file));
-
+   const urls: string[] = [];
+  for (const file of files) {
+    urls.push(await this.storageService.upload(file, ImageType.PORTFOLIO));
+  }
     profile.portfolio_images = [...(profile.portfolio_images || []), ...urls];
     return this.profileRepo.save(profile);
   }

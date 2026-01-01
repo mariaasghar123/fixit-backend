@@ -3,13 +3,19 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeor
 @Entity('password_resets')
 export class PasswordReset {
   @PrimaryGeneratedColumn('uuid')
-  id: number;
+  id: string;
 
   @Column()
   identifier: string; // email or phone
 
   @Column()
   otp: string;
+
+  @Column({ type: 'timestamp' })
+otp_expires_at: Date;
+
+@Column({ type: 'timestamp', nullable: true })
+used_at: Date | null;
 
   @Column({ unique: true })
   reset_token: string;

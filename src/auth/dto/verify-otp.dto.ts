@@ -16,7 +16,7 @@ export class VerifyOtpDto {
   @Matches(/^\d+$/, { message: 'OTP must contain only numbers' })
   otp: string;
 
-  @ApiProperty({ enum: ['user', 'contractor'] })
-  @IsIn(['user', 'contractor'])
-  role: 'user' | 'contractor';
+  // @ApiProperty({ enum: ['user', 'contractor'] })
+  // @IsIn(['user', 'contractor'])
+  // role: 'user' | 'contractor';
 }
