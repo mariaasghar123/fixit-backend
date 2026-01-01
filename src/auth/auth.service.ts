@@ -609,16 +609,19 @@ async resetPassword(dto: ResetPasswordDto) {
   record.is_used = true;
   record.used_at = new Date();
   await this.passwordResetRepo.save(record);
-
   return { message: 'Password reset successfully' };
 }
 
 
-  async logout() {
-    // For stateless JWT, we just return success
-    return { message: 'Logged out successfully' };
-  }
-
+  // ================= LOGOUT =================
+async logout(user: any) {
+  // Stateless JWT logout →nothing deleted in backend
+  // only remove token from frontside
+  return {
+    message: 'Logged out successfully',
+    user_id: user?.id || null,
+  };
+}
   // ================= ENABLE / UPDATE LOCATION =================
   async enableLocation(user: any, dto: EnableLocationDto) {
     let location = await this.locationRepo.findOne({ where: { userId: user.id } });

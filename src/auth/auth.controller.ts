@@ -245,19 +245,24 @@ resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.loginWithPhone(dto);
   }
 
-  @Post('logout')
-@ApiOperation({ summary: 'Logout (Admin / User / Contractor)' })
+  // logout 
+
+ @Post('logout')
+@UseGuards(JwtAuthGuard)  // ✅ ensure only logged-in user can logout
+@ApiOperation({ summary: 'Logout (User / Contractor / Admin)' })
 @ApiResponse({
   status: 200,
   description: 'Logout successful',
   schema: {
-    example: { message: 'Logged out successfully' },
+    example: { message: 'Logged out successfully', user_id: 1 },
   },
 })
-logout() {
-  return this.authService.logout();
+logout(@Req() req) {
+  // req.user comes from JwtAuthGuard
+  return this.authService.logout(req.user);
 }
 
+// enable-location
 
 @Post('enable-location')
 @UseGuards(JwtAuthGuard)
